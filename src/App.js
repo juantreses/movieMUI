@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
 import {
@@ -8,6 +8,10 @@ import {
   Toolbar,
   AppBar,
 } from "@material-ui/core";
+import TheatersIcon from "@material-ui/icons/Theaters";
+
+import { MoviesContext } from "./data/MoviesContext";
+import initialState from "./data/initialState";
 
 import Form from "./components/Form";
 import Movies from "./components/Movies";
@@ -15,68 +19,73 @@ import Movie from "./components/Movie";
 
 import { getScrollDownPercentage } from "./helpers";
 
-export default class App extends React.Component {
-  state = {
-    movies: {
-      data: [],
-      searchValue: "",
-      page: 1,
-      loading: false,
-      error: false,
-    },
-  };
+export default () => {
+  const [state, setState] = useState(initialState);
 
-  componentDidMount = () => {
-    window.onscroll = this.handleScroll;
-  };
+  const {
+    movies: { data, loading, searchValue, page, prevSearchValue },
+  } = state;
 
-  handleScroll = () => {
-    if (!this.state.movies.loading) {
-      if (getScrollDownPercentage(window) > 0.8) {
-        const nextPage = this.state.movies.page + 1;
-        this.searchMovies(this.state.movies.searchValue, nextPage);
-        this.setState({
-          ...this.state,
+  useEffect(() => {
+    window.onscroll = () => {
+      handleScroll();
+    };
+    if (searchValue) {
+      const existingMovies =
+        data.length && prevSearchValue === searchValue ? data : [];
+      setState({
+        ...state,
+        movies: {
+          ...state.movies,
+          loading: true,
+        },
+      });
+      axios
+        .get(`${process.env.REACT_APP_ENDPOINT2}s=${searchValue}&page=${page}`)
+        .then((response) => {
+          if (response.data.Response === "True") {
+            setState({
+              ...state,
+              movies: {
+                ...state.movies,
+                loading: false,
+                searchValue: searchValue,
+                data: [...existingMovies, ...response.data.Search],
+              },
+            });
+          } else {
+            setState({
+              ...state,
+              movies: {
+                ...state.movies,
+                loading: false,
+                error: true,
+              },
+            });
+          }
+        });
+    }
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [searchValue, page]);
+
+  const handleScroll = () => {
+    if (!loading && searchValue) {
+      if (getScrollDownPercentage(window) > 0.7) {
+        setState({
+          ...state,
           movies: {
-            ...this.state.movies,
-            page: nextPage,
+            ...state.movies,
+            page: page + 1,
           },
         });
       }
     }
   };
 
-  searchMovies = (str, page = 1) => {
-    const existingMovies =
-      this.state.movies.data.length && this.state.movies.searchValue === str
-        ? this.state.movies.data
-        : [];
-    this.setState({
-      ...this.state,
-      movies: {
-        ...this.state.movies,
-        loading: true,
-      },
-    });
-    axios
-      .get(`${process.env.REACT_APP_ENDPOINT}s=${str}&page=${page}`)
-      .then((response) => {
-        if (response.data.Response === "True") {
-          this.setState({
-            ...this.state,
-            movies: {
-              ...this.state.movies,
-              loading: false,
-              searchValue: str,
-              data: [...existingMovies, ...response.data.Search],
-            },
-          });
-        }
-      });
-  };
-
-  render() {
-    return (
+  return (
+    <MoviesContext.Provider value={{ state, setState }}>
       <Router>
         <Container>
           <AppBar position="sticky">
@@ -84,23 +93,43 @@ export default class App extends React.Component {
               <Typography variant="h3" style={{ flex: 1 }}>
                 Media Searcher
               </Typography>
-
-              <Form searchMovies={this.searchMovies} />
+              <TheatersIcon fontSize="large" />
             </Toolbar>
           </AppBar>
-
-          {this.state.movies.loading && <LinearProgress />}
+          <Form />
+          {loading && <LinearProgress />}
           <Switch>
             <Route exact path="/">
-              <Movies data={this.state.movies.data} />
+              {searchValue && <Movies data={data} />}
             </Route>
-            <Route
-              path="/movie/:id/:title"
-              render={(props) => <Movie {...props} />}
-            />
+            <Route path="/movie/:id/:title">
+              <Movie />
+            </Route>
           </Switch>
         </Container>
       </Router>
-    );
-  }
-}
+    </MoviesContext.Provider>
+  );
+};
+
+// export default class App extends React.Component {
+//   state = {
+//     movies: {
+//       data: [],
+//       searchValue: "",
+//       page: 1,
+//       loading: false,
+//       error: false,
+//     },
+//   };
+
+//   componentDidMount = () => {
+//
+//   };
+
+//
+
+//   render() {
+//
+//   }
+// }

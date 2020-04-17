@@ -61,16 +61,17 @@ export default class App extends React.Component {
     axios
       .get(`${process.env.REACT_APP_ENDPOINT}s=${str}&page=${page}`)
       .then((response) => {
-        console.log(response);
-        this.setState({
-          ...this.state,
-          movies: {
-            ...this.state.movies,
-            loading: false,
-            searchValue: str,
-            data: [...existingMovies, ...response.data.Search],
-          },
-        });
+        if (response.data.Response === "True") {
+          this.setState({
+            ...this.state,
+            movies: {
+              ...this.state.movies,
+              loading: false,
+              searchValue: str,
+              data: [...existingMovies, ...response.data.Search],
+            },
+          });
+        }
       });
   };
 
